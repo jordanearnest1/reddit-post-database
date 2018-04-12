@@ -57,17 +57,18 @@ def create_reddit_db():
 
     create_table_one = '''
         CREATE TABLE "PostContent"(
-        "ID" SERIAL PRIMARY KEY,
-        "Post_Id" TEXT NOT NULL,
-        "Subreddit_name" TEXT,
+        "ID" INTEGER PRIMARY KEY AUTOINCREMENT,
         "Subreddit_Id" TEXT,
+        "Subreddit_Name" TEXT,
+        "Post_Id" TEXT NOT NULL,
         "subreddit_subscribers" TEXT,
         "Thread_Title" TEXT,
-        "Post_Title" TEXT,        
         "Pinned_content" TEXT,
         "Original_Content" TEXT,
         "Contains_video" TEXT
         )'''
+
+        # "Post_Title" TEXT,        
 
         # "Post_Date" TEXT,
 
@@ -176,7 +177,7 @@ def get_reddit_creds():
 def make_reddit_request(credentials):
     headers = {"Authorization": "bearer " + creds["access_token"], "User-Agent": "subreddit top scores script by /u/" + username}
     params = {}
-    response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top','limit': 4})
+    response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top','limit': 30})
     # for i in json.loads(response2.text):
     #     print(i)
     return json.loads(response2.text)
@@ -190,22 +191,29 @@ creds = get_reddit_creds()
 reddit_request = make_reddit_request(creds)
 
 
+conn = sqlite.connect(DBNAME)
+cur = conn.cursor()
 
 for rr in reddit_request["data"]["children"]:
     result = rr["data"]
     # print(result["subreddit"])
-    Subcategory_Id = result["subreddit_id"]
-    Subcategory_Name = result["subreddit"]
-    Post_Title = result["selftext"]
-    Subreddit_name = result["subreddit"]
     Subreddit_Id = result["subreddit_id"]
+    Subreddit_Name = result["subreddit"]
+    # Post_Title = result["selftext"]
+    Post_Id = result["id"]
     subreddit_subscribers = result["subreddit_subscribers"]
     Thread_Title = result["title"]
-    Post_Id = result["id"]
     Pinned_content = result["pinned"]
     Original_Content = result["is_original_content"]
     Contains_video = result["is_video"]
 
+    insert_statement = '''
+        INSERT INTO PostContent(Subreddit_Id, Subreddit_Name, Post_Id, subreddit_subscribers, Thread_Title, Pinned_content, Original_Content, Contains_video) VALUES (?,?,?,?,?,?,?,?)
+        ''' 
+    cur.execute(insert_statement, [Subreddit_Id, Subreddit_Name, Post_Id, subreddit_subscribers, Thread_Title, Pinned_content, Original_Content, Contains_video])
+    conn.commit()
+
+conn.close()
 
 
 
