@@ -16,6 +16,9 @@ USERNAME = username
 
 DBNAME = '507_final_reddit_2.db'
 CACHE_FNAME = 'reddit_cache.json'
+
+print("######################")
+print(type(CACHE_FNAME))
 # CACHE_DICTION = {}
 
 
@@ -71,6 +74,7 @@ def create_reddit_db():
 
 
 def check_cache_time():
+    global CACHE_FNAME
     try:   ## if there has been a cache file already created 
         time = os.path.getctime(CACHE_FNAME)
         created_time = datetime.fromtimestamp(time)    ### i don't think this is working, i think this keeps re-setting
@@ -92,7 +96,7 @@ def check_cache_time():
         else:
             return True  ## time to replace cache contents. 
     except:  ## means there has not been a cachefile created yet
-        return False 
+        return False    #### --> possibly another problem to deal with later
 
 
 def load_cache():
@@ -100,19 +104,25 @@ def load_cache():
     check_cache = check_cache_time()
     if check_cache is False:
         print("check_cache is false under load_cache")
-        try:  ## there is a cache file,                         ----> COMMENT OUT THE TRY AND EXCEPT AND SEE WHERE IT FAILS
-            cache_file = open(CACHE_FNAME, "r").read()
-            CACHE_DICTION = json.loads(cache_file)
-            cache_file.close()
-        except Error as E: ## hasn't been a cache file created,  ## --> am i not making a cache file here?!
-            print(Error)
-            print("activating load_cache except statement")
-            CACHE_DICTION = {}
-        print("activting load_cache else")
-    else:   ##meaning it's True, it is time to replace cache file.
-        CACHE_DICTION = {}
+        # try:  ## there is a cache file,                         ----> COMMENT OUT THE TRY AND EXCEPT AND SEE WHERE IT FAILS
+        cache_file = open(CACHE_FNAME, 'r').read()  #===> this is a string right now
+        print(type(CACHE_FNAME))
+        print("===========================")
+        print(type(cache_file))
+        CACHE_DICTION = json.load(cache_file)
+        print(CACHE_DICTION)
+        print(type(CACHE_DICTION))
+        CACHE_FNAME.close()
+        return CACHE_DICTION
+    #     except Error as E: ## hasn't been a cache file created,  ## --> am i not making a cache file here?!   ----> TRY THIS
+    #         print(Error)
+    #         print("activating load_cache except statement")
+    #         CACHE_DICTION = {}
+    #     print("activting load_cache else")
+    # else:   ##meaning it's True, it is time to replace cache file.
+    #     CACHE_DICTION = {}
 
-    return CACHE_DICTION
+    # return CACHE_DICTION
 
 
 #  Saves cache contents into a json file
@@ -134,22 +144,7 @@ def get_reddit_creds():
     return(credentials)
 
 
-def make_reddit_request():
-
-    # cachefile= open(CACHE_FNAME, "r").read()
-    # print("this is the cachefile: ")
-    # print(cachefile)
-    # print(type(cachefile))
-    # cachefile.close()
-    # CACHE_DICTION = json.loads(cachefile)
-    # print("these are the contents of the loaded_cache under make_reddit_request")
-    # print(CACHE_DICTION)    
-    # # print(loaded_cache)
-    # # print(len(loaded_cache))
-    #if len(loaded_cache.keys()) == 0:   ## meaning if CACHE_DICT is empty, get new info
-    # print(len(CACHE_DICTION))
-    # if len(CACHE_DICTION) < 1:  ## if nothign in the cache dictionary 
-    print("Cache is empty, making a new request")
+def make_reddit_request():  ## ---> if cache dict is empty, make new request
     creds = get_reddit_creds() ## because cache_dict is empty, get reddit credentials and make new request
     headers = {"Authorization": "bearer " + creds["access_token"], "User-Agent": "subreddit top scores script by /u/" + username}
     params = {}
@@ -163,24 +158,14 @@ def make_reddit_request():
     print("cache_file")
     print(cache_file)
     cache_string = json.dumps(response_text)
-    print("cache_string")
+    print("===================")
+    print("THIS IS MY CACHE STRING AND TYPE")
     print(cache_string)
+    print(type(cache_string))
     cache_file.write(cache_string)
 
     cache_file.close()
     return response_text
-
-        # # write_cache_data(response_text)   ### ---> HELP --> not writing to my cache!!
-        # print("just wrote to cache: ")
-        # print(CACHE_DICTION)
-        # return response_text
-
-
-    # else:   ## --> meaning CACHE_Diction is populated, need to get the response text out of the cache
-    #     cachefile= open(CACHE_FNAME, "r").read()
-    #     cachefile.close()
-    #     CACHE_DICTION = json.loads(cachefile)
-    #     return CACHE_DICTION
 
 
 
@@ -235,9 +220,7 @@ if len(loaded_cache.keys()) == 0:
     loaded_cache = make_reddit_request()
 
 print(loaded_cache.keys())
-# populate_reddit_db(loaded_cache) 
-
-# create_reddit_db()
+#
 
 
 ##just got rid of april 17
