@@ -32,40 +32,42 @@ def create_reddit_db():
     ''' 
     cur.execute(statement)
     conn.commit()
-
     create_table_one = '''
         CREATE TABLE "PostContent"(
         "ID" INTEGER PRIMARY KEY AUTOINCREMENT,
         "Subreddit_Id" TEXT,
         "Subreddit_Name" TEXT,
-        "Post_Id" TEXT NOT NULL,
         "subreddit_subscribers" TEXT,
-        "Thread_Title" TEXT,
-        "Pinned_content" TEXT,
-        "Original_Content" TEXT,
-        "Contains_video" TEXT
-        "Number_Upvotes" INTEGER NOT NULL
+        "Subreddit_description" TEXT,
+        "Audience_category" TEXT
         )'''
-        # "Post_Title" TEXT,        
-        # "Post_Date" TEXT,
-        # "Contains_link" NUMERIC NOT NULL
     cur.execute(create_table_one)
     conn.commit()
 
+
+
     statement = '''
-        DROP TABLE IF EXISTS "PostVotes";
+        DROP TABLE IF EXISTS "Subreddit_Table";
     ''' 
     cur.execute(statement)
     conn.commit()
-    cur.execute('''CREATE TABLE IF NOT EXISTS PostVotes(
-                "ID" SERIAL PRIMARY KEY,
-                "Post_Id" TEXT NOT NULL,
-                "Subcategory_Name" TEXT NOT NULL,
-                "Subcategory_Id" INTEGER NOT NULL,
-                "Number_Upvotes" INTEGER NOT NULL,
-                "Number_Downvotes" INTEGER NOT NULL)
-                ''')
-
+    cur.execute('''CREATE TABLE IF NOT EXISTS Subreddit_Table(
+                    "Subreddit_Id" TEXT,
+                    "Listing_title" TEXT,
+                    "Pinned_content" TEXT,
+                    "Original_Content" TEXT,
+                    "Contains_video" TEXT,
+                    "Number_Upvotes" INTEGER NOT NULL,
+                    "Number_Downvotes" INTEGER,
+                    "Number_Comments" INTEGER)
+                    ''')
+                # "ID" SERIAL PRIMARY KEY,
+                # "Post_Id" TEXT NOT NULL,
+                # "Subcategory_Name" TEXT NOT NULL,
+                # "Subcategory_Id" INTEGER NOT NULL,
+                # "Number_Upvotes" INTEGER NOT NULL,
+                # "Number_Downvotes" INTEGER NOT NULL)
+                # ''')
     conn.commit()
     conn.close()
 
@@ -137,13 +139,15 @@ def get_reddit_creds():
 
 
 def make_reddit_request():  ## ---> if cache dict is empty, make new request
+    current_time = datetime.now()
+    yesterday = now = timedelta(1)
     creds = get_reddit_creds() ## because cache_dict is empty, get reddit credentials and make new request
     headers = {"Authorization": "bearer " + creds["access_token"], "User-Agent": "subreddit top scores script by /u/" + username}
     params = {}
-    response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top','limit': 30})
+    response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'after': yesterday,'limit': 30})
 
     response_text = json.loads(response2.text)
-    write_cache_data(response_text)
+    write_cache_data(response_text)   ####----> Need to put this back in!
     print("this is the type of the response")
     print(type(response_text))
     # cache_file = open(CACHE_FNAME,"w")
@@ -159,40 +163,63 @@ def make_reddit_request():  ## ---> if cache dict is empty, make new request
 
 
 def populate_reddit_db(cache_dict):   ## will need to read it from a cache file either way. 
-    print(CACHE_DICTION)
+    # print(CACHE_DICTION)
     conn = sqlite.connect(DBNAME)
     cur = conn.cursor()
 
     for rr in reddit_request["data"]["children"]:
-        result = rr["data"]
-        # print(result["subreddit"])
-        Subreddit_Id = result["subreddit_id"]
-        Subreddit_Name = result["subreddit"]
-        # Post_Title = result["selftext"]
-        Post_Id = result["id"]
-        subreddit_subscribers = result["subreddit_subscribers"]
-        Thread_Title = result["title"]
-        Pinned_content = result["pinned"]
-        Original_Content = result["is_original_content"]
-        Contains_video = result["is_video"]
-        Number_Upvotes = result["ups"]
+        a_result = rr["data"]
 
-        insert_statement = '''
-            INSERT INTO PostContent(Subreddit_Id, Subreddit_Name, Post_Id, subreddit_subscribers, Thread_Title, Pinned_content, Original_Content, Contains_video, Number_Upvotes) VALUES (?,?,?,?,?,?,?,?,?)
+        Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
+        Pinned_content = a_result["pinned"]
+        Original_Content = a_result["is_original_content"] ## ^
+        Contains_video = a_result["is_video"] ## ^
+        Number_Upvotes = a_result["ups"] ##^
+        Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
+        Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
+
+
+        Subreddit_Id = a_result["id"] 
+        Subreddit_Name = a_result["subreddit"]  
+        subreddit_subscribers = a_result["subscribers"]
+        Subreddit_description = a_result["public_description"]
+        Audience_category = a_result["audience_target"]
+
+
+        post_insert_statement = '''
+            INSERT INTO PostContent(Subreddit_Id, Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments) VALUES (?,?,?,?,?,?,?,?)
             ''' 
-        cur.execute(insert_statement, [Subreddit_Id, Subreddit_Name, Post_Id, subreddit_subscribers, Thread_Title, Pinned_content, Original_Content, Contains_video, Number_Upvotes])
+        cur.execute(post_insert_statement, [Subreddit_Id, Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments])
         conn.commit()
 
+
+        subreddit_insert_statement = '''
+            INSERT INTO Subreddit_Table(Subreddit_Id, Subreddit_Name, subreddit_subscribers, Subreddit_description, Audience_category) VALUES (?,?,?,?,?)
+            ''' 
+        cur.execute(subreddit_insert_statement, [Subreddit_Id, Subreddit_Name, subreddit_subscribers, Subreddit_description, Audience_category])
+        conn.commit()
+
+
     conn.close()
+
+#### pasting to reference the order
+
+### will need to insert subreddit id in both!!
+
 
 
 ## for now while i try out getting the results
 ##create_reddit_db()
 
-loaded_cache = load_cache()   ## Returns a cache diction
-print("this is the type")
-print(type(loaded_cache))
-print(loaded_cache.keys())
+
+## commented out april 18, 1:09pm
+# loaded_cache = load_cache()   ## Returns a cache diction
+# print("this is the type")
+# print(type(loaded_cache))
+# print(loaded_cache.keys())
+
+
+
 # loaded_cache = {}
 # loaded_cache = {SOME PREVIOUS DATA}
 
@@ -213,23 +240,61 @@ print(loaded_cache.keys())
 #     print(rr)
 #         # print(x)
 #     print("==============")
-count = 0
-for post in loaded_cache["data"]["children"]:
-        result = post["data"]
-        print(result["subreddit"])
-        Subreddit_Id = result["subreddit_id"]
-        Subreddit_Name = result["subreddit"]
-        # Post_Title = result["selftext"]
-        Post_Id = result["id"]
-        subreddit_subscribers = result["subreddit_subscribers"]
-        Thread_Title = result["title"]
-        Pinned_content = result["pinned"]
-        Original_Content = result["is_original_content"]
-        Contains_video = result["is_video"]
-        Number_Upvotes = result["ups"]
-        count +=1
 
 
 
 
 
+make = make_reddit_request()
+
+for r in make["data"]:
+    print(r)
+
+
+for r in make["data"]["after"]:
+    print(r)
+
+for r in make["data"]["dist"]:
+    print(r)
+
+    print("============")
+
+for r in make["data"]["modhash"]:
+    print(r)
+
+    print("============")
+
+for r in make["data"]["whitelist_status"]:
+    print(r)
+
+
+for r in make["data"]["children"]:
+    print(r)
+
+for r in make["data"]["before"]:
+    print(r)
+
+
+
+for rr in make["data"]["children"]:
+    a_result = rr["data"]
+
+    Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
+    Pinned_content = a_result["pinned"]
+    Original_Content = a_result["is_original_content"] ## ^
+    Contains_video = a_result["is_video"] ## ^
+    Number_Upvotes = a_result["ups"] ##^
+    Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
+    Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
+
+
+    Subreddit_Id = a_result["id"] 
+    Subreddit_Name = a_result["subreddit"]  
+    #subreddit_subscribers = a_result["subscribers"]
+    #Subreddit_description = a_result["public_description"]
+    #Audience_category = a_result["audience_target"]
+
+   # print(Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments, Subreddit_Id, Subreddit_Name, )
+
+
+# subreddit_subscribers, Subreddit_description, Audience_category
