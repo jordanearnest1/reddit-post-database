@@ -17,6 +17,7 @@ USERNAME = username
 
 DBNAME = '507_final_reddit_2.db'
 CACHE_FNAME = 'reddit_cache.json'
+SUBREDDIT_CACHE = "subreddit_detail_cache.json"
 
 
 #### create database ###
@@ -37,6 +38,7 @@ def create_reddit_db():
         "ID" INTEGER PRIMARY KEY AUTOINCREMENT,
         "Subreddit_Id" TEXT,
         "Subreddit_Name" TEXT,
+        "Subreddit_Name_Prefixed" TEXT,
         "subreddit_subscribers" TEXT,
         "Subreddit_description" TEXT,
         "Audience_category" TEXT
@@ -104,24 +106,36 @@ def check_cache_time():
         return False    #### --> possibly another problem to deal with later  ## THIS DOES NOT WORK!! IGNORE IT!!!
 
 
-def load_cache():
-    global CACHE_FNAME
+def load_cache(cache_file_name):
+    # global CACHE_FNAME
     check_cache = check_cache_time()
     if check_cache is False:
         print("CHECK CACHE IN LOAD CACHE IS FALSE")
-        with open(CACHE_FNAME, "r") as cache_file:
+        with open(cache_file_name, "r", encoding= 'utf-8') as cache_file:
             cache_string = cache_file.read()
-            CACHE_DICTION = json.loads(cache_string)
-        return CACHE_DICTION
+            if cache_file_name in [CACHE_FNAME]:
+                print("if statemetn in check cache false")
+                CACHE_DICTION = json.loads(cache_string)
+                return CACHE_DICTION
+            else:
+                print("else statement in check cache false")
+                SUBREDDIT_DICTION = json.loads(cache_string)
+                return SUBREDDIT_DICTION
     else:
-        CACHE_DICTION = {}
-        return CACHE_DICTION
+        if cache_file_name in [CACHE_FNAME]:
+            print("if statement in check cache true")
+            CACHE_DICTION = {}
+            return CACHE_DICTION
+        else:
+            print("else statement in check cache true")
+            SUBREDDIT_DICTION = {}
+            return SUBREDDIT_DICTION
 
 
 #  Saves cache contents into a json file
-def write_cache_data(data_to_cache):
+def write_cache_data(data_to_cache, cache_file_name):
     # full_text = json.dumps(CACHE_DICTION)
-    cache_file = open(CACHE_FNAME,"w")
+    cache_file = open(cache_file_name,"w", encoding ='utf-8')
     cache_string = json.dumps(data_to_cache)
     cache_file.write(cache_string)
     cache_file.close()
@@ -138,22 +152,24 @@ def get_reddit_creds():
     return(credentials)
 
 
-def make_reddit_request():  ## ---> if cache dict is empty, make new request
+def make_reddit_request(cache_file_name, Subreddit_Name_Prefixed = ""):  ## ---> if cache dict is empty, make new request
     current_time = datetime.now()
     yesterday = now = timedelta(1)
     creds = get_reddit_creds() ## because cache_dict is empty, get reddit credentials and make new request
-    headers = {"Authorization": "bearer " + creds["access_token"], "User-Agent": "subreddit top scores script by /u/" + username}
+    headers = {"Authorization": "bearer" + creds["access_token"], "User-Agent": "subreddit top scores script by /u/" + username}
     params = {}
-    response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'after': yesterday,'limit': 30})
+    if cache_file_name in [CACHE_FNAME]:
+        print("doing the if statement in make_reddit_request")
+        response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'after': yesterday,'limit': 30})
+        # print("this is response2 text")
+        # print(response2.text)
+        response_text = json.loads(response2.text, encoding ='utf-8')
+    else:
+        print("doing the else statement in make_reddit_request, this should only happen when getting subreddit cache")
+        response2 = requests.get("https://oauth.reddit.com" + Subreddit_Name_Prefixed, headers=headers, params = {'sort': 'top', 'limit': 30})
+        response_text = json.loads(response2.text)
+    write_cache_data(response_text, cache_file_name)   ####----> Need to put this back in!
 
-    response_text = json.loads(response2.text)
-    write_cache_data(response_text)   ####----> Need to put this back in!
-    print("this is the type of the response")
-    print(type(response_text))
-    # cache_file = open(CACHE_FNAME,"w")
-    # cache_string = json.dumps(response_text)
-    # cache_file.write(cache_string)
-    # cache_file.close()
     return response_text
 
 
@@ -161,13 +177,12 @@ def make_reddit_request():  ## ---> if cache dict is empty, make new request
 # ##if the time stamp is too old, then 
 
 
-
-def populate_reddit_db(cache_dict):   ## will need to read it from a cache file either way. 
+def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache file either way. 
     # print(CACHE_DICTION)
     conn = sqlite.connect(DBNAME)
     cur = conn.cursor()
 
-    for rr in reddit_request["data"]["children"]:
+    for rr in CACHE_DICTION["data"]["children"]:
         a_result = rr["data"]
 
         Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
@@ -181,9 +196,21 @@ def populate_reddit_db(cache_dict):   ## will need to read it from a cache file 
 
         Subreddit_Id = a_result["id"] 
         Subreddit_Name = a_result["subreddit"]  
-        subreddit_subscribers = a_result["subscribers"]
-        Subreddit_description = a_result["public_description"]
-        Audience_category = a_result["audience_target"]
+        Subreddit_Name_Prefixed = a_result["subreddit_name_prefixed"]
+
+        loaded_cache = load_cache(SUBREDDIT_CACHE)
+
+        if Subreddit_Id in loaded_cache:
+            subreddit_subscribers = a_result["subscribers"]
+            Subreddit_description = a_result["public_description"]
+            Audience_category = a_result["audience_target"]
+        else: 
+            request_made = make_reddit_request(SUBREDDIT_CACHE, Subreddit_Name_Prefixed)
+            for r in request_made["data"]["children"]:
+                another_result = r["data"]
+                subreddit_subscribers = another_result["subscribers"]
+                Subreddit_description = another_result["public_description"]
+                Audience_category = another_result["audience_target"]
 
 
         post_insert_statement = '''
@@ -194,9 +221,9 @@ def populate_reddit_db(cache_dict):   ## will need to read it from a cache file 
 
 
         subreddit_insert_statement = '''
-            INSERT INTO Subreddit_Table(Subreddit_Id, Subreddit_Name, subreddit_subscribers, Subreddit_description, Audience_category) VALUES (?,?,?,?,?)
+            INSERT INTO Subreddit_Table(Subreddit_Id, Subreddit_Name, Subreddit_Name_Prefixed, subreddit_subscribers, Subreddit_description, Audience_category) VALUES (?,?,?,?,?,?)
             ''' 
-        cur.execute(subreddit_insert_statement, [Subreddit_Id, Subreddit_Name, subreddit_subscribers, Subreddit_description, Audience_category])
+        cur.execute(subreddit_insert_statement, [Subreddit_Id, Subreddit_Name, Subreddit_Name_Prefixed, subreddit_subscribers, Subreddit_description, Audience_category])
         conn.commit()
 
 
@@ -241,60 +268,40 @@ def populate_reddit_db(cache_dict):   ## will need to read it from a cache file 
 #         # print(x)
 #     print("==============")
 
+create_reddit_db()
+load_cache(CACHE_FNAME)
+
+make_reddit_request(CACHE_FNAME)
+lc = load_cache(CACHE_FNAME)
+
+populate_reddit_db(lc)
 
 
+# make = make_reddit_request()
+# print(type(make))
+
+# lc = load_cache(CACHE_FNAME)
+# print(lc)
+
+# for rr in make["data"]["children"]:
+#     a_result = rr["data"]
+
+#     Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
+#     Pinned_content = a_result["pinned"]
+#     Original_Content = a_result["is_original_content"] ## ^
+#     Contains_video = a_result["is_video"] ## ^
+#     Number_Upvotes = a_result["ups"] ##^
+#     Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
+#     Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
 
 
-make = make_reddit_request()
+#     Subreddit_Id = a_result["id"] 
+#     Subreddit_Name = a_result["subreddit"]  
+#     #subreddit_subscribers = a_result["subscribers"]
+#     #Subreddit_description = a_result["public_description"]
+#     #Audience_category = a_result["audience_target"]
 
-for r in make["data"]:
-    print(r)
-
-
-for r in make["data"]["after"]:
-    print(r)
-
-for r in make["data"]["dist"]:
-    print(r)
-
-    print("============")
-
-for r in make["data"]["modhash"]:
-    print(r)
-
-    print("============")
-
-for r in make["data"]["whitelist_status"]:
-    print(r)
-
-
-for r in make["data"]["children"]:
-    print(r)
-
-for r in make["data"]["before"]:
-    print(r)
-
-
-
-for rr in make["data"]["children"]:
-    a_result = rr["data"]
-
-    Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
-    Pinned_content = a_result["pinned"]
-    Original_Content = a_result["is_original_content"] ## ^
-    Contains_video = a_result["is_video"] ## ^
-    Number_Upvotes = a_result["ups"] ##^
-    Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
-    Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
-
-
-    Subreddit_Id = a_result["id"] 
-    Subreddit_Name = a_result["subreddit"]  
-    #subreddit_subscribers = a_result["subscribers"]
-    #Subreddit_description = a_result["public_description"]
-    #Audience_category = a_result["audience_target"]
-
-   # print(Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments, Subreddit_Id, Subreddit_Name, )
+#    # print(Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments, Subreddit_Id, Subreddit_Name, )
 
 
 # subreddit_subscribers, Subreddit_description, Audience_category
