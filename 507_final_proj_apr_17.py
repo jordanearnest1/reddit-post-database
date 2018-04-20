@@ -74,10 +74,9 @@ def create_reddit_db():
     conn.close()
 
 
-def check_cache_time():
-    global CACHE_FNAME
+def check_cache_time(cache_file_name):
     try:   ## if there has been a cache file already created 
-        time = os.path.getctime(CACHE_FNAME)
+        time = os.path.getctime(cache_file_name)
         created_time = datetime.fromtimestamp(time)    ### i don't think this is working, i think this keeps re-setting
         print("created_time")
         print(created_time)
@@ -105,10 +104,9 @@ def check_cache_time():
     except:  ## means there has not been a cachefile created yet
         return False    #### --> possibly another problem to deal with later  ## THIS DOES NOT WORK!! IGNORE IT!!!
 
-
 def load_cache(cache_file_name):
     # global CACHE_FNAME
-    check_cache = check_cache_time()
+    check_cache = check_cache_time(cache_file_name)
     if check_cache is False:
         print("CHECK CACHE IN LOAD CACHE IS FALSE")
         with open(cache_file_name, "r", encoding= 'utf-8') as cache_file:
@@ -131,7 +129,6 @@ def load_cache(cache_file_name):
             SUBREDDIT_DICTION = {}
             return SUBREDDIT_DICTION
 
-
 #  Saves cache contents into a json file
 def write_cache_data(data_to_cache, cache_file_name):
     # full_text = json.dumps(CACHE_DICTION)
@@ -142,36 +139,60 @@ def write_cache_data(data_to_cache, cache_file_name):
 
 
 def get_reddit_creds():
-    headers = {"Authorization": "bearer fhTdafZI-0ClEzzYORfBSCR7x3M", "User-Agent": "ChangeMeClient/0.1 by YourUsername"}
+    # headers = {"Authorization": "bearer fhTdafZI-0ClEzzYORfBSCR7x3M", "User-Agent": "ChangeMeClient/0.1 by YourUsername"}
     client_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
     post_data = {'grant_type': 'password', 'username': USERNAME, 'password': PASSWORD}
-    headers = {"User-Agent": "test script by /u/" + USERNAME}
-    response = requests.post("https://www.reddit.com/api/v1/access_token", auth=client_auth, data=post_data, headers=headers)
-    credentials = json.loads(response.text)
-    # print(credentials)
-    return(credentials)
+    headers = {"User-Agent": "http://www.kzoo.edu v1.2.3 (by/u/jordanearnest)"}
+    response = requests.post("https://www.reddit.com/api/v1/access_token", auth=client_auth, data=post_data, headers = headers)
+    response.raise_for_status()
+    # headers=headers
+    token = response.json()
+    # credentials = json.loads(response.text)
+    print(token)
+
+    # headers = {'Authorization': 'Bearer ' + token, "User-Agent": "http://www.kzoo.edu v1.2.3 (by/u/jordanearnest)"}
+    # response = requests.get("https://oauth.reddit.com/api/v1/me", headers=headers)
+    # response.raise_for_status()
+
+    return(token)
+
+# get_reddit_creds()
+
+
+# {'access_token': '34632493108-U6UlN6f2rp3ynpVzPrnsemj5Zqo', 'token_type': 'bearer', 'expires_in': 3600, 'scope': '*'}
 
 
 def make_reddit_request(cache_file_name, Subreddit_Name_Prefixed = ""):  ## ---> if cache dict is empty, make new request
     current_time = datetime.now()
-    yesterday = now = timedelta(1)
-    creds = get_reddit_creds() ## because cache_dict is empty, get reddit credentials and make new request
-    headers = {"Authorization": "bearer" + creds["access_token"], "User-Agent": "subreddit top scores script by /u/" + username}
+    yesterday = current_time -timedelta(1)
+    # creds = get_reddit_creds() ## because cache_dict is empty, get reddit credentials and make new request
+
+    headers = {"Authorization": "bearer 34632493108-U6UlN6f2rp3ynpVzPrnsemj5Zqo", "User-Agent": "http://www.kzoo.edu v1.2.3 (by/u/jordanearnest)"}
+    # headers = {"Authorization": "bearer " + creds["access_token"], "User-Agent": 'your bot 0.1'}
+
     params = {}
     if cache_file_name in [CACHE_FNAME]:
         print("doing the if statement in make_reddit_request")
-        response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'after': yesterday,'limit': 30})
-        # print("this is response2 text")
-        # print(response2.text)
+        response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'limit': 1})
+
+        # response2 = requests.get("https://oauth.reddit.com/r/" + "top", headers=headers, params = {'sort': 'top','limit': 30})
+
+        # with open('debug_out_string.html', 'w', encoding='utf-8') as debug:
+        #     debug.write(response2.text)
         response_text = json.loads(response2.text, encoding ='utf-8')
+
     else:
         print("doing the else statement in make_reddit_request, this should only happen when getting subreddit cache")
-        response2 = requests.get("https://oauth.reddit.com" + Subreddit_Name_Prefixed, headers=headers, params = {'sort': 'top', 'limit': 30})
+        print(Subreddit_Name_Prefixed)
+        response2 = requests.get("https://reddit.com/" + Subreddit_Name_Prefixed + "/about.json")
         response_text = json.loads(response2.text)
+
     write_cache_data(response_text, cache_file_name)   ####----> Need to put this back in!
+    print("writing data into the cache...")
+    # print(write_cache_data)
 
     return response_text
-
+##headers=headers, params = {'sort': 'top', 'limit': 30}
 
 # loaded_cache = load_cache()   ## returns a CACHE_Diction either way ##--> this is something to do when start the program 
 # ##if the time stamp is too old, then 
@@ -181,13 +202,22 @@ def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache fi
     # print(CACHE_DICTION)
     conn = sqlite.connect(DBNAME)
     cur = conn.cursor()
-
+    print(CACHE_DICTION)
+    count = 0
     for rr in CACHE_DICTION["data"]["children"]:
+        print("count = " )
+        print(count)
         a_result = rr["data"]
 
-        Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
+        Listing_title = a_result["title"] 
+        print(Listing_title)
         Pinned_content = a_result["pinned"]
-        Original_Content = a_result["is_original_content"] ## ^
+        print(Pinned_content)
+        try:
+            Original_Content = a_result["is_original_content"] 
+        except:
+            Original_Content = None
+            print("===========ORIGINAL CONTENT ERROR ==========")
         Contains_video = a_result["is_video"] ## ^
         Number_Upvotes = a_result["ups"] ##^
         Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
@@ -196,7 +226,9 @@ def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache fi
 
         Subreddit_Id = a_result["id"] 
         Subreddit_Name = a_result["subreddit"]  
-        Subreddit_Name_Prefixed = a_result["subreddit_name_prefixed"]
+        Subreddit_Name_Prefixed = a_result["subreddit_name_prefixed"]   ### did i add this above?!
+
+        count += 1
 
         loaded_cache = load_cache(SUBREDDIT_CACHE)
 
@@ -205,12 +237,18 @@ def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache fi
             Subreddit_description = a_result["public_description"]
             Audience_category = a_result["audience_target"]
         else: 
-            request_made = make_reddit_request(SUBREDDIT_CACHE, Subreddit_Name_Prefixed)
-            for r in request_made["data"]["children"]:
-                another_result = r["data"]
-                subreddit_subscribers = another_result["subscribers"]
-                Subreddit_description = another_result["public_description"]
-                Audience_category = another_result["audience_target"]
+            another_result_request = make_reddit_request(SUBREDDIT_CACHE, Subreddit_Name_Prefixed)
+            another_result = load_cache(SUBREDDIT_CACHE)
+            print("this is made reddit request")
+            print(another_result)
+            for r in another_result["data"]:
+                print("this is r")
+                print(r)
+                # another_result = r["data"]
+
+                # subreddit_subscribers = another_result['subscribers']
+                # Subreddit_description = another_result["public_description"]
+                # Audience_category = another_result["audience_target"]
 
 
         post_insert_statement = '''
@@ -268,13 +306,19 @@ def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache fi
 #         # print(x)
 #     print("==============")
 
-create_reddit_db()
+# create_reddit_db()
+
+
+
+############### apr 19, 8:38, this is what's up ##################
 load_cache(CACHE_FNAME)
 
 make_reddit_request(CACHE_FNAME)
 lc = load_cache(CACHE_FNAME)
 
 populate_reddit_db(lc)
+
+#############################
 
 
 # make = make_reddit_request()
