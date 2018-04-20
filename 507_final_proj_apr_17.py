@@ -17,7 +17,7 @@ USERNAME = username
 
 DBNAME = '507_final_reddit_2_hide_vpn.db'
 CACHE_FNAME = 'reddit_cache_trying_hide_vpn1.json'
-SUBREDDIT_CACHE = "subreddit_detail_cache_hide_vpn1.json"
+SUBREDDIT_CACHE = "subreddit_detail_cache_hide_vpn3.json"
 
 
 #### create database ###
@@ -38,10 +38,10 @@ def create_reddit_db():
         "ID" INTEGER PRIMARY KEY AUTOINCREMENT,
         "Subreddit_Name_Prefixed" TEXT,
         "Listing_title" TEXT,
-        "Pinned_content" TEXT,
+        "Author" TEXT,
         "Contains_video" TEXT,
         "Number_Upvotes" INTEGER,
-        "Number_Downvotes" INTEGER,
+        "Listing_URL" TEXT,
         "Number_Comments" INTEGER
         )'''
     cur.execute(create_table_one)
@@ -75,7 +75,7 @@ def check_if_cache_exists(cache_file_name):
 
     except:
         with open(cache_file_name, "w", encoding= 'utf-8') as cache_file:
-            cache_file.write("{}")
+            cache_file.write("")
         print("created new cache file, loading cache")
         return False
 
@@ -159,7 +159,7 @@ def make_reddit_request(cache_file_name, Subreddit_Name_Prefixed = ""):  ## --->
     else:
         print("doing the else statement in make_reddit_request, this should only happen when getting subreddit cache")
         print(Subreddit_Name_Prefixed)
-        response2 = requests.get("https://reddit.com/" + Subreddit_Name_Prefixed + "/about.json")
+        response2 = requests.get("https://reddit.com/" + Subreddit_Name_Prefixed[0] + "/about.json")
         response_text = json.loads(response2.text)
 
     write_cache_data(response_text, cache_file_name)   ####----> Need to put this back in!
@@ -187,33 +187,33 @@ def populate_db_main_table(cache_file= CACHE_FNAME):   ## will need to read it f
 
         Subreddit_Name_Prefixed = a_result["subreddit_name_prefixed"]   ### did i add this above?!
         Listing_title = a_result["title"] 
-        Pinned_content = a_result["pinned"]
+        Author = a_result["author"]
         Contains_video = a_result["is_video"] ## ^
         Number_Upvotes = a_result["ups"] ##^
-        Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
+        Listing_URL= a_result["url"] ## NEED TO ADD ABOVE
         Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
 
         count += 1
         post_insert_statement = '''
-            INSERT INTO PostContent(Subreddit_Name_Prefixed, Listing_title, Pinned_content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments) VALUES (?,?,?,?,?,?,?)
+            INSERT INTO PostContent(Subreddit_Name_Prefixed, Listing_title, Author, Contains_video, Number_Upvotes, Listing_URL, Number_Comments) VALUES (?,?,?,?,?,?,?)
             ''' 
-        cur.execute(post_insert_statement, [Subreddit_Name_Prefixed, Listing_title, Pinned_content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments])
+        cur.execute(post_insert_statement, [Subreddit_Name_Prefixed, Listing_title, Author, Contains_video, Number_Upvotes, Listing_URL, Number_Comments])
         conn.commit()
 
     conn.close()
 
 
 
-
 def populate_db_sub_table(cache_file = SUBREDDIT_CACHE):
-
-    conn = sqlite3.connect(DBNAME)
+    conn = sqlite.connect(DBNAME)
     cur = conn.cursor()    
     statement = '''
-        SELECT DISTINCT Subreddit_Name_Prefixed
+        SELECT DISTINCT Subreddit_Name_Prefixed,
+            COUNT(Subreddit_Name_Prefixed) AS occurence
         FROM PostContent
-        ORDER BY count(*) DESC
-        LIMIT 30
+        GROUP BY Subreddit_Name_Prefixed
+        ORDER BY occurence DESC
+        LIMIT 50
     '''
     cur.execute(statement)    
     results = cur.fetchall()
@@ -236,15 +236,21 @@ def populate_db_sub_table(cache_file = SUBREDDIT_CACHE):
             another_result_request = make_reddit_request(SUBREDDIT_CACHE, Subreddit_Name_Prefixed)
             another_result = load_cache(SUBREDDIT_CACHE)
             print("this is made reddit request")
-            print(another_result)
-            for a_result in another_result["data"]:
-                
-                Subreddit_Id = a_result["id"] 
-                Subreddit_Name = a_result["subreddit"] 
-                subreddit_subscribers = Subreddit_Id["subscribers"]
-                Subreddit_description = Subreddit_Id["public_description"]
-                Audience_category = Subreddit_Id["audience_target"]
+            # print(another_result)
+            # for a_result in another_result["data"]:
 
+            #     Subreddit_Id = a_result["id"] 
+            #     Subreddit_Name = a_result["subreddit"] 
+            #     subreddit_subscribers = Subreddit_Id["subscribers"]
+            #     Subreddit_description = Subreddit_Id["public_description"]
+            #     Audience_category = Subreddit_Id["audience_target"]
+
+            a_result = another_result["data"]
+            Subreddit_Id = a_result["id"] 
+            Subreddit_Name = a_result["display_name"] 
+            subreddit_subscribers = a_result["subscribers"]
+            Subreddit_description = a_result["public_description"]
+            Audience_category = a_result["audience_target"]
 
         subreddit_insert_statement = '''
             INSERT INTO Subreddit_Table(Subreddit_Id, Subreddit_Name, Subreddit_Name_Prefixed, subreddit_subscribers, Subreddit_description, Audience_category) VALUES (?,?,?,?,?,?)
@@ -300,44 +306,32 @@ def populate_db_sub_table(cache_file = SUBREDDIT_CACHE):
 
 ############### apr 19, 8:38, this is what's up ##################
 
-create_reddit_db()
+# create_reddit_db()
 # load_cache(CACHE_FNAME)
 
 # make_reddit_request(CACHE_FNAME)
 # lc = load_cache(CACHE_FNAME)
 
-populate_db_main_table()
+# populate_db_main_table()
 
-# populate_db_sub_table()
+populate_db_sub_table("subreddit_detail_cache_hide_vpn1.json")
 
 #############################
 
+# another_result = load_cache("subreddit_detail_cache_hide_vpn1.json")
+# print("this is made reddit request")
+# # print(another_result)
+# a_result = another_result["data"]
 
-# make = make_reddit_request()
-# print(type(make))
-
-# lc = load_cache(CACHE_FNAME)
-# print(lc)
-
-# for rr in make["data"]["children"]:
-#     a_result = rr["data"]
-
-#     Listing_title = a_result["title"]  #listing title  ^ ##used to be thread title
-#     Pinned_content = a_result["pinned"]
-#     Original_Content = a_result["is_original_content"] ## ^
-#     Contains_video = a_result["is_video"] ## ^
-#     Number_Upvotes = a_result["ups"] ##^
-#     Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
-#     Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
+# # for x in a_result:
+# #     print(x)
 
 
-#     Subreddit_Id = a_result["id"] 
-#     Subreddit_Name = a_result["subreddit"]  
-#     #subreddit_subscribers = a_result["subscribers"]
-#     #Subreddit_description = a_result["public_description"]
-#     #Audience_category = a_result["audience_target"]
+# Subreddit_Id = a_result["id"] 
+# Subreddit_Name = a_result["display_name"] 
+# subreddit_subscribers = a_result["subscribers"]
+# Subreddit_description = a_result["public_description"]
+# Audience_category = a_result["audience_target"]
 
-#    # print(Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments, Subreddit_Id, Subreddit_Name, )
+# print(Subreddit_Id, Subreddit_Name, subreddit_subscribers, Subreddit_description, Audience_category)
 
-
-# subreddit_subscribers, Subreddit_description, Audience_category
