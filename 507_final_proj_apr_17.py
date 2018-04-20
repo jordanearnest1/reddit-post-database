@@ -15,9 +15,9 @@ CLIENT_SECRET = client_secret
 PASSWORD = password
 USERNAME = username
 
-DBNAME = '507_final_reddit_2.db'
-CACHE_FNAME = 'reddit_cache.json'
-SUBREDDIT_CACHE = "subreddit_detail_cache.json"
+DBNAME = '507_final_reddit_2_hide_vpn.db'
+CACHE_FNAME = 'reddit_cache_trying_hide_vpn1.json'
+SUBREDDIT_CACHE = "subreddit_detail_cache_hide_vpn1.json"
 
 
 #### create database ###
@@ -36,12 +36,13 @@ def create_reddit_db():
     create_table_one = '''
         CREATE TABLE "PostContent"(
         "ID" INTEGER PRIMARY KEY AUTOINCREMENT,
-        "Subreddit_Id" TEXT,
-        "Subreddit_Name" TEXT,
         "Subreddit_Name_Prefixed" TEXT,
-        "subreddit_subscribers" TEXT,
-        "Subreddit_description" TEXT,
-        "Audience_category" TEXT
+        "Listing_title" TEXT,
+        "Pinned_content" TEXT,
+        "Contains_video" TEXT,
+        "Number_Upvotes" INTEGER,
+        "Number_Downvotes" INTEGER,
+        "Number_Comments" INTEGER
         )'''
     cur.execute(create_table_one)
     conn.commit()
@@ -55,67 +56,41 @@ def create_reddit_db():
     conn.commit()
     cur.execute('''CREATE TABLE IF NOT EXISTS Subreddit_Table(
                     "Subreddit_Id" TEXT,
-                    "Listing_title" TEXT,
-                    "Pinned_content" TEXT,
-                    "Original_Content" TEXT,
-                    "Contains_video" TEXT,
-                    "Number_Upvotes" INTEGER NOT NULL,
-                    "Number_Downvotes" INTEGER,
-                    "Number_Comments" INTEGER)
+                    "Subreddit_Name" TEXT,
+                    "Subreddit_Name_Prefixed" TEXT,
+                    "subreddit_subscribers" INTEGER,
+                    "Subreddit_description" TEXT,
+                    "Audience_category" TEXT)
                     ''')
-                # "ID" SERIAL PRIMARY KEY,
-                # "Post_Id" TEXT NOT NULL,
-                # "Subcategory_Name" TEXT NOT NULL,
-                # "Subcategory_Id" INTEGER NOT NULL,
-                # "Number_Upvotes" INTEGER NOT NULL,
-                # "Number_Downvotes" INTEGER NOT NULL)
-                # ''')
+
     conn.commit()
     conn.close()
 
+def check_if_cache_exists(cache_file_name):
+    try:
+        with open(cache_file_name, "r", encoding= 'utf-8') as cache_file:
+                cache_string = cache_file.read()
+        print("cache already exists, loading cache")
+        return True
 
-def check_cache_time(cache_file_name):
-    try:   ## if there has been a cache file already created 
-        time = os.path.getctime(cache_file_name)
-        created_time = datetime.fromtimestamp(time)    ### i don't think this is working, i think this keeps re-setting
-        print("created_time")
-        print(created_time)
-        current_time = datetime.now()
-        print("current_time")
-        print(current_time)
-
-        change_time = current_time - created_time
-        print("change_time")
-        print(change_time)
-        # change_time_days = change_time.days
-        # print("change_time days")
-        # print(change_time)
-        change_time_minutes = change_time.minute
-        print("change")
-        print(change_time_minutes)
-
-        print("===========change_time")
-        print(change_time)
-
-        if change_time <= 1:
-            return False   ## no need to get new contents, cache is up to date
-        else:
-            return True  ## time to replace cache contents. 
-    except:  ## means there has not been a cachefile created yet
-        return False    #### --> possibly another problem to deal with later  ## THIS DOES NOT WORK!! IGNORE IT!!!
+    except:
+        with open(cache_file_name, "w", encoding= 'utf-8') as cache_file:
+            cache_file.write("{}")
+        print("created new cache file, loading cache")
+        return False
 
 def load_cache(cache_file_name):
     # global CACHE_FNAME
-    check_cache = check_cache_time(cache_file_name)
-    if check_cache is False:
-        print("CHECK CACHE IN LOAD CACHE IS FALSE")
+
+    check_cache = check_if_cache_exists(cache_file_name) 
+    if check_cache is True:
         with open(cache_file_name, "r", encoding= 'utf-8') as cache_file:
             cache_string = cache_file.read()
-            if cache_file_name in [CACHE_FNAME]:
+            if cache_file_name in [CACHE_FNAME]:   ## if we are looking at the main cache file
                 print("if statemetn in check cache false")
                 CACHE_DICTION = json.loads(cache_string)
                 return CACHE_DICTION
-            else:
+            else:  ##meaning, if we are looking at the subreddit cache file
                 print("else statement in check cache false")
                 SUBREDDIT_DICTION = json.loads(cache_string)
                 return SUBREDDIT_DICTION
@@ -142,7 +117,7 @@ def get_reddit_creds():
     # headers = {"Authorization": "bearer fhTdafZI-0ClEzzYORfBSCR7x3M", "User-Agent": "ChangeMeClient/0.1 by YourUsername"}
     client_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
     post_data = {'grant_type': 'password', 'username': USERNAME, 'password': PASSWORD}
-    headers = {"User-Agent": "http://www.kzoo.edu v1.2.3 (by/u/jordanearnest)"}
+    headers = {"User-Agent": "https://www.programsinformationpeople.org/runestone/static/publicPIP/ (by/u/saraliebman)"}
     response = requests.post("https://www.reddit.com/api/v1/access_token", auth=client_auth, data=post_data, headers = headers)
     response.raise_for_status()
     # headers=headers
@@ -156,10 +131,10 @@ def get_reddit_creds():
 
     return(token)
 
-# get_reddit_creds()
+#get_reddit_creds()
 
 
-# {'access_token': '34632493108-U6UlN6f2rp3ynpVzPrnsemj5Zqo', 'token_type': 'bearer', 'expires_in': 3600, 'scope': '*'}
+# {'access_token': '95981440222-MEghZSvMQTzuo6ewBDqwqN11Wd8', 'token_type': 'bearer', 'expires_in': 3600, 'scope': '*'}
 
 
 def make_reddit_request(cache_file_name, Subreddit_Name_Prefixed = ""):  ## ---> if cache dict is empty, make new request
@@ -167,13 +142,13 @@ def make_reddit_request(cache_file_name, Subreddit_Name_Prefixed = ""):  ## --->
     yesterday = current_time -timedelta(1)
     # creds = get_reddit_creds() ## because cache_dict is empty, get reddit credentials and make new request
 
-    headers = {"Authorization": "bearer 34632493108-U6UlN6f2rp3ynpVzPrnsemj5Zqo", "User-Agent": "http://www.kzoo.edu v1.2.3 (by/u/jordanearnest)"}
+    headers = {"Authorization": "bearer 95981440222-MEghZSvMQTzuo6ewBDqwqN11Wd8", "User-Agent": "https://www.programsinformationpeople.org/runestone/static/publicPIP/ (by/u/saraliebman)"}
     # headers = {"Authorization": "bearer " + creds["access_token"], "User-Agent": 'your bot 0.1'}
 
     params = {}
     if cache_file_name in [CACHE_FNAME]:
         print("doing the if statement in make_reddit_request")
-        response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'limit': 1})
+        response2 = requests.get("https://oauth.reddit.com/" + "top", headers=headers, params = {'sort': 'top', 'before' : current_time, 'limit': 100})
 
         # response2 = requests.get("https://oauth.reddit.com/r/" + "top", headers=headers, params = {'sort': 'top','limit': 30})
 
@@ -198,64 +173,77 @@ def make_reddit_request(cache_file_name, Subreddit_Name_Prefixed = ""):  ## --->
 # ##if the time stamp is too old, then 
 
 
-def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache file either way. 
-    # print(CACHE_DICTION)
+def populate_db_main_table(cache_file= CACHE_FNAME):   ## will need to read it from a cache file either way. 
+    loaded_cache = load_cache(CACHE_FNAME)
+
     conn = sqlite.connect(DBNAME)
     cur = conn.cursor()
-    print(CACHE_DICTION)
+    print(loaded_cache)
     count = 0
-    for rr in CACHE_DICTION["data"]["children"]:
+    for rr in loaded_cache["data"]["children"]:
         print("count = " )
         print(count)
         a_result = rr["data"]
 
+        Subreddit_Name_Prefixed = a_result["subreddit_name_prefixed"]   ### did i add this above?!
         Listing_title = a_result["title"] 
-        print(Listing_title)
         Pinned_content = a_result["pinned"]
-        print(Pinned_content)
-        try:
-            Original_Content = a_result["is_original_content"] 
-        except:
-            Original_Content = None
-            print("===========ORIGINAL CONTENT ERROR ==========")
         Contains_video = a_result["is_video"] ## ^
         Number_Upvotes = a_result["ups"] ##^
         Number_Downvotes= a_result["downs"] ## NEED TO ADD ABOVE
         Number_Comments = a_result["num_comments"]  ##--> NEED TO ADD ABOVE
 
-
-        Subreddit_Id = a_result["id"] 
-        Subreddit_Name = a_result["subreddit"]  
-        Subreddit_Name_Prefixed = a_result["subreddit_name_prefixed"]   ### did i add this above?!
-
         count += 1
+        post_insert_statement = '''
+            INSERT INTO PostContent(Subreddit_Name_Prefixed, Listing_title, Pinned_content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments) VALUES (?,?,?,?,?,?,?)
+            ''' 
+        cur.execute(post_insert_statement, [Subreddit_Name_Prefixed, Listing_title, Pinned_content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments])
+        conn.commit()
 
-        loaded_cache = load_cache(SUBREDDIT_CACHE)
+    conn.close()
 
-        if Subreddit_Id in loaded_cache:
-            subreddit_subscribers = a_result["subscribers"]
-            Subreddit_description = a_result["public_description"]
-            Audience_category = a_result["audience_target"]
+
+
+
+def populate_db_sub_table(cache_file = SUBREDDIT_CACHE):
+
+    conn = sqlite3.connect(DBNAME)
+    cur = conn.cursor()    
+    statement = '''
+        SELECT DISTINCT Subreddit_Name_Prefixed
+        FROM PostContent
+        ORDER BY count(*) DESC
+        LIMIT 30
+    '''
+    cur.execute(statement)    
+    results = cur.fetchall()
+
+    lst_50_top_subreddit_prefixes = []
+    
+    for r in results:
+        lst_50_top_subreddit_prefixes.append(r)
+
+    loaded_cache = load_cache(SUBREDDIT_CACHE)
+
+    for Subreddit_Name_Prefixed in lst_50_top_subreddit_prefixes:
+        if Subreddit_Name_Prefixed in loaded_cache:
+            Subreddit_Id = a_result["id"] 
+            Subreddit_Name = a_result["subreddit"] 
+            subreddit_subscribers = Subreddit_Id["subscribers"]
+            Subreddit_description = Subreddit_Id["public_description"]
+            Audience_category = Subreddit_Id["audience_target"]
         else: 
             another_result_request = make_reddit_request(SUBREDDIT_CACHE, Subreddit_Name_Prefixed)
             another_result = load_cache(SUBREDDIT_CACHE)
             print("this is made reddit request")
             print(another_result)
-            for r in another_result["data"]:
-                print("this is r")
-                print(r)
-                # another_result = r["data"]
-
-                # subreddit_subscribers = another_result['subscribers']
-                # Subreddit_description = another_result["public_description"]
-                # Audience_category = another_result["audience_target"]
-
-
-        post_insert_statement = '''
-            INSERT INTO PostContent(Subreddit_Id, Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments) VALUES (?,?,?,?,?,?,?,?)
-            ''' 
-        cur.execute(post_insert_statement, [Subreddit_Id, Listing_title, Pinned_content, Original_Content, Contains_video, Number_Upvotes, Number_Downvotes, Number_Comments])
-        conn.commit()
+            for a_result in another_result["data"]:
+                
+                Subreddit_Id = a_result["id"] 
+                Subreddit_Name = a_result["subreddit"] 
+                subreddit_subscribers = Subreddit_Id["subscribers"]
+                Subreddit_description = Subreddit_Id["public_description"]
+                Audience_category = Subreddit_Id["audience_target"]
 
 
         subreddit_insert_statement = '''
@@ -311,12 +299,16 @@ def populate_reddit_db(CACHE_DICTION):   ## will need to read it from a cache fi
 
 
 ############### apr 19, 8:38, this is what's up ##################
-load_cache(CACHE_FNAME)
 
-make_reddit_request(CACHE_FNAME)
-lc = load_cache(CACHE_FNAME)
+create_reddit_db()
+# load_cache(CACHE_FNAME)
 
-populate_reddit_db(lc)
+# make_reddit_request(CACHE_FNAME)
+# lc = load_cache(CACHE_FNAME)
+
+populate_db_main_table()
+
+# populate_db_sub_table()
 
 #############################
 
