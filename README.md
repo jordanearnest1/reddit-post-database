@@ -13,18 +13,23 @@ Your GitHub repo must also contain a requirements.txt file that can be used by t
 For this project I used Reddit.com API to obtain data about today's top posts, and their respective subreddits. I additionally scraped data from redditlist.com related to today's trending subreddits, and the like. 
 
 
-#To use the program: 
+# To use the program: 
 
-##When you first create your database run:
+### When you first create your database run:
 create_reddit_db()
 
-##Once a day to delete your cache, make a new cache dictionary, and get the day's data,:
+### Once a day to delete your cache, make a new cache dictionary, and get the day's data and write them to the cache dictionary:
 load_cache(CACHE_FNAME)  
 make_reddit_request(CACHE_FNAME)
 
 
-##populate the table with today's data 
-# lc = load_cache(CACHE_FNAME)
-# populate_db_main_table()
-# get_redditlist_info()
+### To populate the tables with today's data: 
+lc = load_cache(CACHE_FNAME)
+populate_db_main_table()
+get_redditlist_info()
 
+
+### To run the interactive program, which will prompt the user to select data visualization options:
+interactive_prompt()
+
+#### Note, this is the only function active in the file upon submission.
