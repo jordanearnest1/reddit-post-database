@@ -5,68 +5,82 @@ import plotly.plotly as py
 import plotly.graph_objs as go
 
 
-DBNAME = '507_final_reddit.db'
+DBNAME = '507_reddit_final.db'
 
 
-# def process_command(response):
+# # def process_command(response):
 
-conn = sqlite3.connect(DBNAME)
-cur = conn.cursor()    
-
-# if len(response) == 1:
-#     primary_query = response[0]
-#     query_params = ''
-
-# else:
-#     primary_query = response[0]
-#     query_params = response[1:]
-
-##
-
-##need to add the "if user enters ___ part."
-
-# "PostContent"
-# "ID"
-# "Subreddit_Id"
-# "Subreddit_Name"
-# "Post_Id"
-# "subreddit_subscribers"
-
-#this will change to something like:
-
-# statement = '''
-#     SELECT P.Subreddit_Name
-#     FROM PostContent as P
-#     JOIN Subreddit_Table as S
-#     ON S.Subreddit_Id = P.Subreddit_Id
-#     ORDER BY subreddit_subscribers DESC
-#     LIMIT 20
-# '''
+# conn = sqlite3.connect(DBNAME)
+# cur = conn.cursor()    
 
 
-# statement = '''
-#     SELECT DISTINCT Subreddit_Name
-#     FROM PostContent
-#     ORDER BY subreddit_subscribers DESC
-#     LIMIT 20
-# '''
+def load_help_text():
+    with open('help.txt') as f:
+        return f.read()
 
-# cur.execute(statement)
-# results = cur.fetchall()
+def user_query():
+    user_input = input("\n\n\n ***** Welcome to the Subreddit Database! *****\n Please enter a visualization you would like to see.\nYou may chose between 'representation', 'overlap', 'listings' or 'video' (or 'help' for more info): ")
+    command = user_input.lower().split()
+    return command
 
-# return_lst = []
-# for result in results:
-#     print(result)
+def interactive_prompt():
+    help_text = load_help_text()
+
+    response = user_query()
+
+    try:
+        while response[0] != 'exit':
+
+            if response[0] == 'help':
+                print(help_text)
+                # continue
+
+            elif response[0] not in ['representation','overlap','listings','video','help','exit']:
+                str_response = ""
+                for i in response:
+                    str_response += i
+                    str_response += " "
+                print('Command is not recognized: '+ str_response)
+
+            elif response[0] in ['representation']:
+                most_represented_categories()
+
+            elif response[0] in ['overlap']:
+                overlap_categories_listings()
+
+            elif response[0] in ['listings']:
+                listing_titles_number_comments()
+
+            else:
+                has_video()
+
+            print("\n")
+            response = user_query()
+
+    except:
+        print("\n")
+        response = user_query()
+
+    if response[0] == 'exit':
+        print('bye!')
+        exit()
+
+
 
 
 #####################################################################################
 ## To see the 10 most represented categories of subreddits in the "Top" results
 
 def most_represented_categories():
+    conn = sqlite3.connect(DBNAME)
+    cur = conn.cursor()    
+
     statement = '''
-        SELECT Subreddit_Name, count(*)
-        FROM PostContent
-        GROUP BY Subreddit_Name
+        SELECT st.Subreddit_Name, count(pc.Listing_title)
+        FROM PostContent as pc
+            Join Subreddit_Table as st
+            ON pc.Subreddit_Name_Prefixed = st.Subreddit_Name_Prefixed
+        GROUP BY st.Subreddit_Name
         LIMIT 10
         '''
     cur.execute(statement)    
@@ -90,16 +104,19 @@ def most_represented_categories():
                                line=dict(color='#000000', width=2)))
     py.plot([trace], filename='styled_pie_chart')
 
-
+most_represented_categories()
 
 ##############################################################################################
 ##correlation between subreddit category of top posts and how many subscribers they have
 ## the subreddit category of the top posts of the days, against how many subscribers that category has  ##
 
 def overlap_categories_listings():
+    conn = sqlite3.connect(DBNAME)
+    cur = conn.cursor()    
+
     statement = '''
         SELECT DISTINCT Subreddit_Name, subreddit_subscribers
-        FROM PostContent
+        FROM Subreddit_Table
         ORDER BY subreddit_subscribers DESC
         LIMIT 10
         '''
@@ -117,10 +134,6 @@ def overlap_categories_listings():
         subreddit_label_lst.append(result[0])
         subreddit_subscriber_lst.append(int(result[1]))
 
-    print(subreddit_label_lst)
-    print(subreddit_subscriber_lst)
-
-
 
     ###how many of today's top posts fall under each of these subreddit categories
     top_post_subreddit_lst = []
@@ -128,10 +141,10 @@ def overlap_categories_listings():
 
     statement = '''
         SELECT Subreddit_Name, count(*)
-        FROM PostContent
+        FROM Subreddit_Table
         WHERE Subreddit_Name IN (
             SELECT DISTINCT Subreddit_Name
-            FROM PostContent
+            FROM Subreddit_Table
             ORDER BY subreddit_subscribers DESC
             LIMIT 10
              )
@@ -144,47 +157,6 @@ def overlap_categories_listings():
     for result in results:
         top_post_subreddit_lst.append(result[0])
         top_post_subreddit_value_lst.append(result[1])
-
-    print(top_post_subreddit_lst)
-    print(top_post_subreddit_value_lst)
-
-
-    ##can also order by count
-
-
-    # trace1 = go.Bar(
-    #     x=subreddit_label_lst,
-    #     y=subreddit_subscriber_lst,
-    #     name='Most Subscribed Subreddits'
-    # )
-    # trace2 = go.Scatter(
-    #     x=top_post_subreddit_lst,
-    #     y=top_post_subreddit_value_lst,
-    #     name="Subreddits Most Highly Represented in Today's top",
-    #     yaxis="Number of listings"
-    # )
-    # data = [trace1, trace2]
-    # layout = go.Layout(
-    #     title="Most Subscribed Subreddits and Their Representation in Today's Top Listings",
-    #     yaxis=dict(
-    #         title='Subreddit Subscribers'
-
-    #     ),
-    #     yaxis2=dict(
-    #         title="Number of today's top listings are from each given subreddit",
-    #         titlefont=dict(
-    #             color='rgb(148, 103, 189)'
-    #         ),
-    #         tickfont=dict(
-    #             color='rgb(148, 103, 189)'
-    #         ),
-    #         overlaying='x',
-    #         side='right'
-    #     )
-    # )
-    # fig = go.Figure(data=data, layout=layout)
-    # plot_url = py.plot(fig, filename='multiple-axes-double')
-
 
 
 
@@ -220,12 +192,63 @@ def overlap_categories_listings():
     fig = go.Figure(data=data, layout=layout)
     plot_url = py.plot(fig)
 
-        # "anchor": 'free',
-        # "position":0.85, 
 
 
 
-##############################################################################################
+## see the top ten listings today and how many up-votes they have
+def listing_titles_number_comments():
+    conn = sqlite3.connect(DBNAME)
+    cur = conn.cursor()    
+
+    statement = '''
+        SELECT Listing_title, Number_Upvotes
+        FROM PostContent
+        ORDER BY Number_Upvotes DESC
+        LIMIT 10
+        '''
+    cur.execute(statement)    
+    results = cur.fetchall()
+
+    label_lst = []
+    count_lst = []
+
+    for result in results:
+        label_lst.append(result[0])
+        count_lst.append(result[1])
+
+    data = [go.Bar(
+                x= label_lst,
+                y= count_lst
+        )]
+
+    py.plot(data, filename='basic-bar')
+
 
 
 ### what percent of posts from each have original content or a video in bar chart
+def has_video():
+    conn = sqlite3.connect(DBNAME)
+    cur = conn.cursor()    
+    statement = '''
+    SELECT DISTINCT Listing_title, count(*)
+    FROM PostContent
+    WHERE Contains_video is 0
+
+    '''
+
+    cur.execute(statement)    
+    results = cur.fetchall()   
+
+    for result in results:
+        the_result = result[1]
+
+    no_video = 100 - the_result
+    # print(no_video)
+    labels = ['Contains a Video','Does not contain a Video']
+    values = [the_result, no_video]
+
+    trace = go.Pie(labels=labels, values=values)
+    py.plot([trace], filename='basic_pie_chart')
+
+
+# interactive_prompt()
