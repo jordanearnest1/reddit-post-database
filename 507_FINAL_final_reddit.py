@@ -142,13 +142,11 @@ def check_if_cache_exists(cache_file_name):
     try:
         with open(cache_file_name, "r", encoding= 'utf-8') as cache_file:
                 cache_string = cache_file.read()
-        print("cache already exists, loading cache")
         return True
 
     except:
         with open(cache_file_name, "w", encoding= 'utf-8') as cache_file:
             cache_file.write("")
-        print("created new cache file, loading cache")
         return False
 
 def load_cache(cache_file_name):
@@ -157,20 +155,16 @@ def load_cache(cache_file_name):
         with open(cache_file_name, "r", encoding= 'utf-8') as cache_file:
             cache_string = cache_file.read()
             if cache_file_name in [CACHE_FNAME]:   ## if we are looking at the main cache file
-                print("if statemetn in check cache false")
                 CACHE_DICTION = json.loads(cache_string)
                 return CACHE_DICTION
             else:  ##meaning, if we are looking at the subreddit cache file
-                print("else statement in check cache false")
                 SUBREDDIT_DICTION = json.loads(cache_string)
                 return SUBREDDIT_DICTION
     else:
         if cache_file_name in [CACHE_FNAME]:
-            print("if statement in check cache true")
             CACHE_DICTION = {}
             return CACHE_DICTION
         else:
-            print("else statement in check cache true")
             SUBREDDIT_DICTION = {}
             return SUBREDDIT_DICTION
 
@@ -241,7 +235,6 @@ def populate_db_main_table(cache_file= CACHE_FNAME):   ## will need to read it f
 
     conn = sqlite.connect(DBNAME)
     cur = conn.cursor()
-    print(loaded_cache)
     count = 0
     for rr in loaded_cache["data"]["children"]:
         a_result = rr["data"]
@@ -518,7 +511,6 @@ def has_video():
         the_result = result[1]
 
     no_video = 100 - the_result
-    # print(no_video)
     labels = ['Contains a Video','Does not contain a Video']
     values = [the_result, no_video]
 
@@ -596,12 +588,12 @@ def interactive_prompt():
 # When you first create your database: 
 # create_reddit_db()
 
-# Once a day to delete your cache and get the day's data, run:
-# # load_cache(CACHE_FNAME)  --> will see if a cache file already exists, if not, it will make one, and either way it will load the cache file
-# # make_reddit_request(CACHE_FNAME)
+# # Once a day to delete your cache and get the day's data, run:
+# load_cache(CACHE_FNAME)  
+# make_reddit_request(CACHE_FNAME)
 
 
-## populate the table with today's data 
+# # populate the table with today's data 
 # lc = load_cache(CACHE_FNAME)
 # populate_db_main_table()
 # get_redditlist_info()
