@@ -1,0 +1,23 @@
+
+
+********** HELP CENTER ***********
+
+
+"representation"
+
+Enter the command "representation" to see the 10 most represented subreddits in today's "Top" Reddit listings.
+
+
+"overlap"
+
+Enter the command "overlap" to see the how many subscribers the top subreddit categories have, along with how many of today's top posts are from each of those categories. 
+
+
+"listings"
+Enter the command "listings" to see the titles of the top ten listings of today and how many up-votes they have.
+
+
+"video"
+Enter the command "video" to see the percentage of the top 100 listings for the day that contain a video. 
+
+
